@@ -8,7 +8,7 @@ bio_nextgen:
   alignment:
     - bwa
     - bowtie
-    - gmap
+#    - gmap
     - lastz
     - perm
   analysis:
@@ -23,9 +23,9 @@ bio_nextgen:
     - solexaqa
     - tophat
   assembly:
-    - abyss
-    - transabyss
-    - trinity
+#    - abyss
+#    - transabyss
+#    - trinity
     - velvet
   chip:
     - macs
@@ -41,8 +41,8 @@ python:
   - matplotlib
   - rpy
 java:
-  - leinengin
-  #- cljr
+#  - leinengin
+#  - cljr
 # ToDo -- test on 64bit with bfast
 #- dnaa
 #- srma
