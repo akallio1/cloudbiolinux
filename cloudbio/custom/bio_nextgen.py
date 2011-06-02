@@ -121,7 +121,7 @@ def install_lastz(env):
           "lastz-%s.tar.gz" % version
     _get_install(url, env, _make_copy("find -perm -100 -name 'lastz'"))
 
-# --- Analysis
+# --- Utilities
 
 @_if_not_installed("fastq_quality_boxplot_graph.sh")
 def install_fastx_toolkit(env):
@@ -144,19 +144,6 @@ def install_solexaqa(env):
             run("unzip %s" % os.path.basename(url))
             sudo("mv SolexaQA.pl %s" % os.path.join(env.system_install, "bin"))
 
-def install_picard(env):
-    version = "1.41"
-    url = "http://downloads.sourceforge.net/project/picard/" \
-          "picard-tools/%s/picard-tools-%s.zip" % (version, version)
-    install_dir = _symlinked_java_version_dir("picard", version)
-    if install_dir:
-        with _make_tmp_dir() as work_dir:
-            with cd(work_dir):
-                run("wget %s" % (url))
-                run("unzip %s" % os.path.basename(url))
-                with cd(os.path.splitext(os.path.basename(url))[0]):
-                    sudo("mv *.jar %s" % install_dir)
-
 @_if_not_installed("fastqc")
 def install_fastqc(env):
     version = "0.9.1"
@@ -174,6 +161,65 @@ def install_fastqc(env):
                     sudo("mv * %s" % install_dir)
                 sudo("ln -s %s/%s %s/bin/%s" % (install_dir, executable,
                                                 env.system_install, executable))
+
+@_if_not_installed("intersectBed")
+def install_bedtools(env):
+    repository = "git clone git://github.com/arq5x/bedtools.git"
+    _get_install(repository, env, _make_copy("ls -1 bin/*"))
+
+@_if_not_installed("sabre")
+def install_sabre(env):
+    repo = "git clone git://github.com/najoshi/sabre.git"
+    _get_install(repo, env, _make_copy("find -perm -100 -name 'sabre*'"))
+
+_shrec_run = """
+#!/usr/bin/perl
+use warnings;
+use strict;
+use FindBin qw($RealBin);
+use Getopt::Long;
+
+my @java_args;
+my @args;
+foreach (@ARGV) {
+  if (/^\-X/) {push @java_args,$_;}
+  else {push @args,$_;}}
+system("java -cp $RealBin @java_args Shrec @args");
+"""
+
+@_if_not_installed("shrec")
+def install_shrec(env):
+    version = "2.1"
+    url = "http://downloads.sourceforge.net/project/shrec-ec/SHREC%%20%s/bin.zip" % version
+    use_sudo = True
+    install_dir = _symlinked_java_version_dir("shrec", version, use_sudo=use_sudo)
+    do_sudo = sudo if use_sudo else run
+    if install_dir:
+        shrec_script = "%s/shrec" % install_dir
+        with _make_tmp_dir() as work_dir:
+            run("wget %s" % (url))
+            run("unzip %s" % os.path.basename(url))
+            do_sudo("mv *.class %s" % install_dir)
+            for line in _shrec_run.split("\n"):
+                if line.strip():
+                    append(shrec_script, line, use_sudo=use_sudo)
+            do_sudo("chmod a+rwx %s" % shrec_script)
+            do_sudo("ln -s %s %s/bin/shrec" % (shrec_script, env.system_install))
+
+# -- Analysis
+
+def install_picard(env):
+    version = "1.41"
+    url = "http://downloads.sourceforge.net/project/picard/" \
+          "picard-tools/%s/picard-tools-%s.zip" % (version, version)
+    install_dir = _symlinked_java_version_dir("picard", version)
+    if install_dir:
+        with _make_tmp_dir() as work_dir:
+            with cd(work_dir):
+                run("wget %s" % (url))
+                run("unzip %s" % os.path.basename(url))
+                with cd(os.path.splitext(os.path.basename(url))[0]):
+                    sudo("mv *.jar %s" % install_dir)
 
 def install_gatk(env):
     version = "1.0.5777"
@@ -217,11 +263,6 @@ def install_snpeff(env):
 @_if_not_installed("freebayes")
 def install_freebayes(env):
     repository = "git clone git://github.com/ekg/freebayes.git"
-    _get_install(repository, env, _make_copy("ls -1 bin/*"))
-
-@_if_not_installed("intersectBed")
-def install_bedtools(env):
-    repository = "git clone git://github.com/arq5x/bedtools.git"
     _get_install(repository, env, _make_copy("ls -1 bin/*"))
 
 def _install_samtools_libs(env):

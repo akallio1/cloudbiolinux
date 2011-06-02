@@ -1,18 +1,23 @@
-CloudBioLinux is a build and deployment system which installs
-a large selection of Bioinformatics and machine learning libraries
-on a bare virtual machine (VM) image, freshly installed PC,
-or in the cloud. By default CloudBioLinux includes a
-large suite of tools and libraries, largely pulled from
-the package management system provided by the image. In addition
-CloudBioLinux installs packages through other mechanisms, such as
-native installers and libraries for Perl, R, Python, JAVA and Ruby, as
-well as installers for special data resources.
+CloudBioLinux is a build and deployment system which installs a large
+selection of Bioinformatics and machine learning libraries on a bare
+virtual machine (VM) image, freshly installed PC, or in the cloud. By
+default CloudBioLinux includes a large suite of tools and libraries,
+largely pulled from the package management system provided by the
+image. In addition to the default configuration, other software
+configurations are supported through, so called, 'editions' and
+'flavors'. An edition is a named base install. Flavors support
+overriding base packages for specific installations.  CloudBioLinux
+installs packages through multiple mechanisms, including the default
+distribution installer, native installers, and libraries for Perl, R,
+Python, JAVA and Ruby, as well as installers for special data
+resources.
 
-CloudBioLinux is designed for VMs on the desktop, such as [VirtualBox][v2], or
-cloud providers, such as [Amazon EC2][0], where you start with a bare bones
-system and bootstrap a running instance. CloudBioLinux included software
-packages are fully customizable, and different flavours of
-CloudBioLinux can be configured.
+CloudBioLinux is designed as a single install route for both VMs on
+the desktop, such as [VirtualBox][v2], and cloud providers, such as
+[Amazon EC2][0], where you start with a bare bones system and
+bootstrap a running instance. CloudBioLinux included software packages
+are fully customizable, and different flavours of CloudBioLinux can be
+configured.
 
 CloudBioLinux provides a [Fabric build file][3], written in Python.
 There is little need to understand Python, though, as most configuration
@@ -97,8 +102,9 @@ no passwords needed! Get root with
 Through Vagrant additional facilities are available, such as a shared
 network drive.  It is also possible to tweak the image (e.g. RAM/CPU
 settings, and getting the all important guest additions) by firing up
-virtualbox itself. For more information, see the Vagrant
-[documentation][v1].
+virtualbox itself. For more information, see the BioLinux 
+[Vagrant documentation][doc], as well as the 
+documentation on the [Vagrant website][v1].
 
 # Building an image from scratch using CloudBioLinux
 
@@ -213,6 +219,31 @@ additional custom bioinformatics package definitions for inclusion in
 CloudBioLinux. `custom/shared.py` contains a number of higher level functions
 which make it easier to write installation instructions.
 
+### Using flavors
+
+A Flavor is a specialization of an installation edition. A flavor can filter on
+packages and add packages and other software. To use a flavor, pass it
+in on the command line, e.g.
+
+      fab -f fabfile.py -H localhost install_biolinux:flavor=my_flavor
+
+And, like with the other options, a flavor can also be defined in the
+config file. A command line parameter, however, is preferred.
+
+### Rolling your own
+
+BioLinux normally creates a full system for Bioinformatics. The tools
+provided here to create such an environment are rather generic. So, if you want to
+install packages on any system, be it desktop, server or VM, the
+BioLinux tool set can be used to role your own. The first step it to us
+install_bare with a named package list, e.g.
+
+      fab -f fabfile.py -H localhost install_bare:packagelist=./contrib/minimal/main.yaml
+
+where install_bare is the fab entry point to a non-specific install,
+starting from the package list in the passed in packagelist. For more
+information see the section 'Rolling your own' in the BioLinux vagrant documentation in [./doc/vagrant.md][doc].
+
 ## EC2 quickstart
 
 This provides a quick cheat sheet of commands for getting up and running on EC2 using
@@ -263,14 +294,22 @@ Allow ssh and web access to your instances:
 
 Each time you'd like to use EC2, you need to create a remote instance to work
 with, which can be done nicely via the [AWS console][4]. Pick an AMI,
-start an instance and ensure that it is running. You will
-need to increase the size of the root filesystem to fit all of the
-CloudBioLinux data and libraries. This is done by ssh-ing in to the
-machine:
+start an instance and ensure that it is running.
 
-       % ssh -i ~/.ec2/id-sobchak.keypair ubuntut@ec2-174-129-68-135.compute-1.amazonaws.com
-       % sudo resize2fs /dev/sda1
-       % df -h
+For building from scratch, you will need to increase the size of the
+root filesystem to fit all of the CloudBioLinux data and libraries.
+This is done by starting the instance from the commandline:
+
+       % ec2-run-instances ami-1aad5273 -k sobchak-keypair -t m1.large
+                           -b /dev/sda1=:20
+       % ec2-describe-instances i-0ca39764
+
+# Documentation
+
+Additional documentation can be found in the [./doc directory][doc] in the
+BioLinux source tree.
+
+[doc]: https://github.com/chapmanb/cloudbiolinux
 
 # LICENSE
 

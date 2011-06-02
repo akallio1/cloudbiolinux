@@ -1,13 +1,25 @@
-class Edition:
-    """Base class. Every edition derives from this
-    """
-    def __init__(self, env):
-        self.name = "BioLinux base Edition"
-        self.env = env
-        self.include_oracle_virtualbox = True
-        self.include_freenx = True
+"""An Edition reflects a base install, the default being BioLinux.
 
-    def check_packages_source(self):
-        """Override for check package definition file before updating
-        """
-        self.env.logger.debug("check_packages_source not implemented")
+Editions are shared between multiple projects. To specialize an edition, create
+a Flavor instead.
+
+Other editions can be found in this directory
+"""
+
+from cloudbio.edition.base import Edition, Minimal, BioNode
+
+_edition_map = {None: Edition,
+                "minimal": Minimal,
+                "bionode": BioNode}
+
+def _setup_edition(env):
+    """Setup one of the BioLinux editions (which are derived from
+       the Edition base class)
+    """
+    # fetch Edition from environment and load relevant class. Use
+    # an existing edition, if possible, and override behaviour through
+    # the Flavor mechanism.
+    edition_class = _edition_map[env.get("edition", None)]
+    env.edition = edition_class(env)
+    env.logger.debug("%s %s" % (env.edition.name, env.edition.version))
+    env.logger.info("This is a %s" % env.edition.short_name)

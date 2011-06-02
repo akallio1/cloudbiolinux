@@ -1,15 +1,15 @@
 # BioNode configuration file for Fabric specifying filesystem information
 #
-# For example, to configure BioNode with vagrant (for VirtualBox),
+# For example, to configure a minimal install with vagrant (for VirtualBox),
 # assuming you have a configured ./Vagrantfile
 #
-#  fab -H vagrant -f $source/fabfile.py install_biolinux -c $source/contrib/bionode/fabricrc_bionode.txt
+#  fab -H vagrant -f $source/fabfile.py -c  $source/contrib/minimal/fabricrc.txt install_bare:packagelist=$source/contrib/minimal/main.yaml
 #
 #  Updated by Pjotr Prins <pjotr.debian@thebird.nl> 
 #
 
 ## BioNode is Debian
-edition = bionode
+edition = minimal
 edition_version = 0.91
 distribution = debian
 dist_name = squeeze
@@ -22,6 +22,6 @@ system_install = /usr
 local_install = ~/install
 shell_config = ~/.bashrc
 shell = /bin/bash -l -c
-data_files = /mnt/biodata
-galaxy_base = /mnt/biodata/galaxy
+# data_files = /mnt/biodata
+# galaxy_base = /mnt/biodata/galaxy
 

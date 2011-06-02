@@ -8,7 +8,8 @@ Usage:
 
     fab -H hostname -i private_key_file install_biolinux
 
-which will call into the 'install_biolinux' method below.
+which will call into the 'install_biolinux' method below. See the README for
+more examples.
 
 Requires:
     Fabric http://docs.fabfile.org
@@ -16,7 +17,6 @@ Requires:
 """
 import os
 import sys
-import subprocess
 
 from fabric.main import load_settings
 from fabric.api import *
@@ -24,14 +24,17 @@ from fabric.contrib.files import *
 import yaml
 import logging
 
-# ## General setup
-env.config_dir = os.path.join(os.path.dirname(__file__), "config")
-
 # use global cloudbio directory if installed, or utilize local if not
 try:
     import cloudbio
 except ImportError:
     sys.path.append(os.path.dirname(__file__))
+    import cloudbio
+
+from cloudbio.edition import _setup_edition
+from cloudbio.distribution import _setup_distribution_environment
+
+# ## Utility functions for establishing our build environment
 
 def _setup_logging():
     env.logger = logging.getLogger("cloudbiolinux")
@@ -45,147 +48,12 @@ def _setup_logging():
     ch.setFormatter(formatter)
     env.logger.addHandler(ch)
 
-# ### Configuration details for different server types
-
-def _setup_edition():
-    """Setup one of the BioLinux editions (which are derived from
-       the Edition base class)
-    """
-    edition = env.get("edition", None)
-    if edition is None:
-        from cloudbio.edition import Edition
-        env.edition = 'biolinux'
-        env.edition_version = '0.60'
-        env.cur_edition = Edition(env)
-    elif edition == 'bionode':
-        from cloudbio.edition.bionode import BioNode
-        env.bionode = True
-        env.cur_edition = BioNode(env)
-    else:
-        raise ValueError("Unknown edition: %s" % edition)
-    env.logger.debug("Edition %s %s" % (env.edition, env.edition_version))
-    env.logger.info("This is a %s" % env.cur_edition.name)
-
-def _setup_distribution_environment():
-    """Setup distribution environment
-    """
-    env.logger.info("Distribution %s" % env.distribution)
-    # specialization booleans, simplifying logic (somewhat)
-    # these are the only 'special' boolean switches allowed, they can
-    # also be moved into the 'edition' logic:
-    env.debian = False       # is it pure Debian?
-    env.ubuntu = False       # is it pure Ubuntu?
-    env.centos = False       # is it pure CentOS?
-    env.deb_derived = False  # is it Debian derived?
-
-    if env.hosts == ["vagrant"]:
-        _setup_vagrant_environment()
-    elif env.hosts == ["localhost"]:
-        _setup_local_environment()
-    if env.distribution == "ubuntu":
-        env.ubuntu = True
-        env.deb_derived = True
-        _setup_ubuntu()
-    elif env.distribution == "centos":
-        env.centos = True
-        _setup_centos()
-    elif env.distribution == "debian":
-        env.debian = True
-        env.deb_derived = True
-        _setup_debian()
-    else:
-        raise ValueError("Unexpected distribution %s" % env.distribution)
-    _expand_shell_paths()
-
-def _validate_target_distribution():
-    """Check target matches environment setting (for sanity)
-
-    Throws exception on error
-    """
-    env.logger.debug("Checking target distribution %s",env.distribution)
-    if env.debian:
-        tag = run("cat /proc/version")
-        if tag.find('ebian') == -1:
-           raise ValueError("Debian does not match target, are you using correct fabconfig?")
-    elif env.ubuntu:
-        tag = run("cat /proc/version")
-        if tag.find('buntu') == -1:
-           raise ValueError("Ubuntu does not match target, are you using correct fabconfig?")
-    else:
-        env.logger.debug("Unknown target distro")
-
-def _setup_ubuntu():
-    env.logger.info("Ubuntu setup")
-    if not env.ubuntu:
-       raise ValueError("Target is not Ubuntu")
-    shared_sources = _setup_deb_general()
-    # package information. This is ubuntu/debian based and could be generalized.
-    version = env.dist_name
-    sources = [
-      "deb http://us.archive.ubuntu.com/ubuntu/ %s universe",
-      "deb-src http://us.archive.ubuntu.com/ubuntu/ %s universe",
-      "deb http://us.archive.ubuntu.com/ubuntu/ %s-updates universe",
-      "deb-src http://us.archive.ubuntu.com/ubuntu/ %s-updates universe",
-      "deb http://us.archive.ubuntu.com/ubuntu/ %s multiverse",
-      "deb-src http://us.archive.ubuntu.com/ubuntu/ %s multiverse",
-      "deb http://us.archive.ubuntu.com/ubuntu/ %s-updates multiverse",
-      "deb-src http://us.archive.ubuntu.com/ubuntu/ %s-updates multiverse",
-      "deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen", # mongodb
-      "deb http://cran.stat.ucla.edu/bin/linux/ubuntu %s/", # lastest R versions
-      "deb http://archive.cloudera.com/debian %s-cdh3 contrib", # Hadoop
-      "ppa:sun-java-community-team/sun-java6", # sun-java
-    ] + shared_sources
-    env.std_sources = _add_source_versions(version, sources)
-
-def _setup_debian():
-    env.logger.info("Debian setup")
-    if not env.debian:
-       raise ValueError("Target is not pure Debian")
-    shared_sources = _setup_deb_general()
-    version = env.dist_name
-    if not env.get('debian_repository'):
-      main_repository = 'http://ftp.us.debian.org/debian/'
-    else:
-      main_repository = env.debian_repository
-
-    sources = [
-      "deb {repo} %s main contrib non-free".format(repo=main_repository),
-      "deb {repo} %s-updates main contrib non-free".format(repo=main_repository),
-      "deb http://downloads-distro.mongodb.org/repo/debian-sysvinit dist 10gen", # mongodb
-      "deb http://cran.stat.ucla.edu/bin/linux/debian %s-cran/", # latest R versions
-      "deb http://archive.cloudera.com/debian lenny-cdh3 contrib", # Hadoop
-    ] + shared_sources
-    env.std_sources = _add_source_versions(version, sources)
-
-def _setup_deb_general():
-    """Shared settings for different debian based/derived distributions.
-    """
-    env.logger.debug("Debian-shared setup")
-    env.sources_file = "/etc/apt/sources.list"
-    env.python_version_ext = ""
-    if not env.has_key("java_home"):
-        # XXX look for a way to find JAVA_HOME automatically
-        env.java_home = "/usr/lib/jvm/java-6-openjdk"
-    shared_sources = [
-      "deb http://nebc.nox.ac.uk/bio-linux/ unstable bio-linux", # Bio-Linux
-    ]
-    if env.cur_edition.include_oracle_virtualbox:
-        # virtualbox (non-free, otherwise use virtualbox-ose instead)
-        shared_sources.append('deb http://download.virtualbox.org/virtualbox/debian %s contrib')
-    if env.cur_edition.include_freenx:
-        # this arguably belongs in _setup_ubuntu:
-        shared_sources.append('deb http://ppa.launchpad.net/freenx-team/ppa/ubuntu lucid main') # FreeNX PPA
-    return shared_sources
-
-def _setup_centos():
-    env.logger.info("CentOS setup")
-    env.python_version_ext = "2.6"
-    if not env.has_key("java_home"):
-        env.java_home = "/etc/alternatives/java_sdk"
-
 def _parse_fabricrc():
     """Defaults from fabricrc.txt file; loaded if not specified at commandline.
     """
+    # ## General setup
+    env.config_dir = os.path.join(os.path.dirname(__file__), "config")
+
     if not env.has_key("distribution"):
         env.logger.info("Reading default fabricrc.txt")
         config_file = os.path.join(env.config_dir, "fabricrc.txt")
@@ -194,92 +62,101 @@ def _parse_fabricrc():
     else:
         env.logger.warn("Skipping fabricrc.txt as distribution is already defined")
 
-def _expand_shell_paths():
+def _create_local_paths():
     """Expand any paths defined in terms of shell shortcuts (like ~).
     """
-    env.logger.debug("Expand paths")
-    if env.has_key("local_install"):
-        if not exists(env.local_install):
-            run("mkdir -p %s" % env.local_install)
-        with cd(env.local_install):
-            with settings(hide('warnings', 'running', 'stdout', 'stderr'),
-                          warn_only=True):
+    with settings(hide('warnings', 'running', 'stdout', 'stderr'),
+                  warn_only=True):
+        # This is the first point we call into a remote host - make sure
+        # it does not fail silently by calling a dummy run
+        env.logger.info("Now, testing connection to host...")
+        test = run("pwd")
+        # If there is a connection failure, the rest of the code is (sometimes) not
+        # reached - for example with Vagrant the program just stops after above run
+        # command.
+        if test != None:
+          env.logger.info("Connection to host appears to work!")
+        else:
+          raise NotImplementedError("Connection to host failed")
+        env.logger.debug("Expand paths")
+        if env.has_key("local_install"):
+            if not exists(env.local_install):
+                run("mkdir -p %s" % env.local_install)
+            with cd(env.local_install):
                 result = run("pwd")
                 env.local_install = result
 
-def _setup_local_environment():
-    """Setup a localhost environment based on system variables.
+def _setup_flavor(flavor):
+    """Setup flavor
     """
-    env.logger.info("Get local environment")
-    if not env.has_key("user"):
-        env.user = os.environ["USER"]
-    if not env.has_key("java_home"):
-        env.java_home = os.environ.get("JAVA_HOME", "/usr/lib/jvm/java-6-openjdk")
-
-def _setup_vagrant_environment():
-    """Use vagrant commands to get connection information.
-    https://gist.github.com/1d4f7c3e98efdf860b7e
-    """
-    env.logger.info("Get vagrant environment")
-    raw_ssh_config = subprocess.Popen(["vagrant", "ssh-config"],
-                                      stdout=subprocess.PIPE).communicate()[0]
-    ssh_config = dict([l.strip().split() for l in raw_ssh_config.split("\n") if l])
-    env.user = ssh_config["User"]
-    env.hosts = [ssh_config["HostName"]]
-    env.port = ssh_config["Port"]
-    env.host_string = "%s@%s:%s" % (env.user, env.hosts[0], env.port)
-    env.key_filename = ssh_config["IdentityFile"]
-    env.logger.debug("ssh %s" % env.host_string)
-
-def _add_source_versions(version, sources):
-    """Patch package source strings for version, e.g. Debian 'stable'
-    """
-    name = version
-    env.logger.debug("Source=%s" % name)
-    final = []
-    for s in sources:
-        if s.find("%s") > 0:
-            s = s % name
-        final.append(s)
-    return final
+    if flavor == None:
+        flavor = env.get("flavor", None)
+        flavor_path = env.get("flavor_path", None)
+    if flavor != None:
+        # Add path for flavors
+        sys.path.append(os.path.join(os.path.dirname(__file__), "contrib", "flavor"))
+        env.logger.info("Flavor %s loaded from %s" % (flavor, flavor_path))
+        try:
+            mod = __import__(flavor_path, fromlist=[flavor])
+        except ImportError:
+            raise ImportError("Failed to import %s" % flavor)
+    else:
+        from cloudbio.flavor import Flavor
+    env.logger.info("This is a %s" % env.flavor.name)
 
 # ### Shared installation targets for all platforms
 
-def install_biolinux(target=None):
+def install_biolinux(packagelist=None, flavor=None, target=None):
     """Main entry point for installing Biolinux on a remote server.
 
-    target is supplied on the fab CLI. Special targets are:
+    This allows a different main package list (the main YAML file is passed in),
+    and/or use of Flavor. So you can say:
 
-      - packages     Install distro packages (default)
-      - custom
-      - libraries
-      - finalize     Setup freenx
+      install_bare:packagelist=contrib/mylist/main.yaml,flavor=specialflavor
+
+    Both packagelist and flavor, as well as the Edition, can also be passed in
+    through the fabricrc file.
+
+    target can also be supplied on the fab CLI. Special targets are:
+
+      - packages     Install distro packages
+      - custom       Install custom packages
+      - libraries    Install programming language libraries
+      - finalize     Setup freenx and clean-up environment
     """
     _setup_logging()
     _check_fabric_version()
     _parse_fabricrc()
-    _setup_edition()
+    _setup_edition(env)
+    _setup_flavor(flavor)
     _setup_distribution_environment() # get parameters for distro, packages etc.
-    pkg_install, lib_install = _read_main_config()  # read main.yaml
-    _validate_target_distribution()
+    _create_local_paths()
+    env.logger.info("packagelist=%s" % packagelist)
+    pkg_install, lib_install = _read_main_config(packagelist)  # read yaml
     env.logger.info("Target=%s" % target)
     if target is None or target == "packages":
-        if env.deb_derived:
+        if env.distribution in ["debian", "ubuntu"]:
             _setup_apt_sources()
             _setup_apt_automation()
             _add_apt_gpg_keys()
             _apt_packages(pkg_install)
-        elif env.centos:
+        elif env.distibution in ["centos"]:
             _setup_yum_sources()
             _yum_packages(pkg_install)
             _setup_yum_bashrc()
+        else:
+            raise NotImplementedError("Unknown target distribution")
     if target is None or target == "custom":
         _custom_installs(pkg_install)
     if target is None or target == "libraries":
         _do_library_installs(lib_install)
     if target is None or target == "finalize":
-        _freenx_scripts()
-        _cleanup()
+        env.edition.post_install()
+        env.flavor.post_install()
+        _cleanup_space()
+        if env.has_key("is_ec2_image") and env.is_ec2_image.upper() in ["TRUE", "YES"]:
+            _freenx_scripts()
+            _cleanup_ec2()
 
 def _check_fabric_version():
     """Checks for fabric version installed
@@ -293,7 +170,7 @@ def _custom_installs(to_install):
         run("mkdir -p %s" % env.local_install)
     pkg_config = os.path.join(env.config_dir, "custom.yaml")
     packages, pkg_to_group = _yaml_to_packages(pkg_config, to_install)
-    for p in packages:
+    for p in env.flavor.rewrite_custom_list(packages):
         install_custom(p, True, pkg_to_group)
 
 def install_custom(p, automated=False, pkg_to_group=None):
@@ -309,8 +186,9 @@ def install_custom(p, automated=False, pkg_to_group=None):
     if not automated:
         if not env.has_key("system_install"):
             _parse_fabricrc()
-        _setup_edition()
+        _setup_edition(env)
         _setup_distribution_environment()
+        _create_local_paths()
         pkg_config = os.path.join(env.config_dir, "custom.yaml")
         packages, pkg_to_group = _yaml_to_packages(pkg_config, None)
     try:
@@ -364,6 +242,8 @@ def _yaml_to_packages(yaml_file, to_install, subs_yaml_file = None):
                         data.append((cur_key, val))
             else:
                 raise ValueError(cur_info)
+    env.logger.debug("Packages:")
+    env.logger.debug(",".join(packages))
     return packages, pkg_to_group
 
 def _filter_subs_packages(initial, subs):
@@ -379,18 +259,22 @@ def _filter_subs_packages(initial, subs):
             final.append(new_p)
     return sorted(final)
 
-def _read_main_config():
+def _read_main_config(yaml_file=None):
     """Pull a list of groups to install based on our main configuration YAML.
 
     Reads 'main.yaml' and returns packages and libraries
     """
-    yaml_file = os.path.join(env.config_dir, "main.yaml")
+    if yaml_file==None:
+        yaml_file = os.path.join(env.config_dir, "main.yaml")
     with open(yaml_file) as in_handle:
         full_data = yaml.load(in_handle)
     packages = full_data['packages']
     packages = packages if packages else []
     libraries = full_data['libraries']
     libraries = libraries if libraries else []
+    env.logger.info("Meta-package information")
+    env.logger.info(",".join(packages))
+    env.logger.info(",".join(libraries))
     return packages, sorted(libraries)
 
 # ### Library specific installation code
@@ -447,7 +331,7 @@ def _python_library_installer(config):
     """
     version_ext = "-%s" % env.python_version_ext if env.python_version_ext else ""
     sudo("easy_install%s -U pip" % version_ext)
-    for pname in config['pypi']:
+    for pname in env.flavor.rewrite_python_egg_list(config['pypi']):
         sudo("easy_install%s -U %s" % (version_ext, pname))
         # Use pip when it doesn't re-download even if latest package installed
         # https://bitbucket.org/ianb/pip/issue/13/upgrade-always-downloads-most-recent
@@ -462,7 +346,7 @@ def _ruby_library_installer(config):
             gem_info = run("gem list --no-versions")
         return [l.rstrip("\r") for l in gem_info.split("\n") if l.rstrip("\r")]
     installed = _cur_gems()
-    for gem in config['gems']:
+    for gem in env.flavor.rewrite_ruby_gem_list(config['gems']):
         # update current gems only to check for new installs
         if gem not in installed:
             installed = _cur_gems()
@@ -477,7 +361,7 @@ def _perl_library_installer(config):
     run("wget --no-check-certificate http://xrl.us/cpanm")
     run("chmod a+rwx cpanm")
     sudo("mv cpanm %s/bin" % env.system_install)
-    for lib in config['cpan']:
+    for lib in env.flavor.rewrite_perl_cpan_list(config['cpan']):
         # Need to hack stdin because of some problem with cpanminus script that
         # causes fabric to hang
         # http://agiletesting.blogspot.com/2010/03/getting-past-hung-remote-processes-in.html
@@ -503,8 +387,9 @@ def install_libraries(language):
     _setup_logging()
     _check_fabric_version()
     _parse_fabricrc()
-    _setup_edition()
+    _setup_edition(env)
     _setup_distribution_environment()
+    _create_local_paths()
     _do_library_installs(["%s-libs" % language])
 
 def _do_library_installs(to_install):
@@ -520,24 +405,26 @@ def _apt_packages(to_install):
     """Install packages available via apt-get.
     """
     env.logger.info("Update and install all packages")
-    pkg_config = os.path.join(env.config_dir, "packages.yaml")
-    subs_pkg_config = os.path.join(env.config_dir, "packages-%s.yaml" %
+    pkg_config_file = os.path.join(env.config_dir, "packages.yaml")
+    subs_pkg_config_file = os.path.join(env.config_dir, "packages-%s.yaml" %
                                    env.distribution)
-    if not os.path.exists(subs_pkg_config): subs_pkg_config = None
-    sudo("apt-get update")
-    sudo("apt-get -y --force-yes upgrade")
-    # Retrieve packages to get and install each of them
-    (packages, _) = _yaml_to_packages(pkg_config, to_install,
-                                      subs_pkg_config)
-    # for package in packages:
-    #     sudo("apt-get -y --force-yes install %s" % package)
+    if not os.path.exists(subs_pkg_config_file): subs_pkg_config_file = None
+    sudo("apt-get update") # Always update
+    env.edition.apt_upgrade_system()
+    # Retrieve final package names
+    (packages, _) = _yaml_to_packages(pkg_config_file, to_install,
+                                      subs_pkg_config_file)
+    # At this point allow the Flavor to rewrite the package list
+    packages = env.flavor.rewrite_packages_list(packages)
+
     # A single line install is much faster - note that there is a max
     # for the command line size, so we do 30 at a time
     group_size = 30
     i = 0
+    env.logger.info("Updating %i packages" % len(packages))
     while i < len(packages):
-      sudo("apt-get -y --force-yes install %s" % " ".join(packages[i:i+group_size]))
-      i += group_size
+        sudo("apt-get -y --force-yes install %s" % " ".join(packages[i:i+group_size]))
+        i += group_size
     sudo("apt-get clean")
 
 def _add_apt_gpg_keys():
@@ -545,21 +432,20 @@ def _add_apt_gpg_keys():
     """
     env.logger.info("Update GPG keys for repositories")
     standalone = [
-        "http://archive.cloudera.com/debian/archive.key"
+        "http://archive.cloudera.com/debian/archive.key",
+        'http://download.virtualbox.org/virtualbox/debian/oracle_vbox.asc'
     ]
-    if env.cur_edition.include_oracle_virtualbox:
-        standalone.append('http://download.virtualbox.org/virtualbox/debian/oracle_vbox.asc')
-    keyserver = []
-    if env.ubuntu:
-        keyserver = [
+    standalone = env.edition.rewrite_apt_keys(standalone)
+    for key in standalone:
+        sudo("wget -q -O- %s | apt-key add -" % key)
+    keyserver = [
             ("keyserver.ubuntu.com", "7F0CEB10"),
             ("keyserver.ubuntu.com", "E084DAB9"),
             ("keyserver.ubuntu.com", "D67FC6EAE2A11821"),
         ]
+    keyserver = env.edition.rewrite_apt_keyserver(keyserver)
     for url, key in keyserver:
         sudo("apt-key adv --keyserver %s --recv %s" % (url, key))
-    for key in standalone:
-        sudo("wget -q -O- %s | apt-key add -" % key)
 
 def _setup_apt_automation():
     """Setup the environment to be fully automated for tricky installs.
@@ -588,11 +474,10 @@ def _setup_apt_automation():
             "grub-pc grub-pc/install_devices_empty boolean true",
             "acroread acroread/default-viewer boolean false",
             ]
+    package_info = env.edition.rewrite_apt_automation(package_info)
     cmd = ""
     for l in package_info:
-        #     sudo("echo %s | /usr/bin/debconf-set-selections" % l)
         cmd += "echo %s | /usr/bin/debconf-set-selections ; " % l
-
     sudo(cmd)
 
 def _setup_apt_sources():
@@ -604,9 +489,11 @@ def _setup_apt_sources():
        Uses python-software-properties, which provides an abstraction of apt repositories
     """
     sudo("apt-get install -y --force-yes python-software-properties")
-    env.cur_edition.check_packages_source()
+    env.edition.check_packages_source()
 
-    comment = "# This file was modified for "+ env.cur_edition.name
+    comment = "# This file was modified for "+ env.edition.name
+    if not exists(env.sources_file):
+        sudo("touch %s" % env.sources_file)
     if not contains(env.sources_file, comment):
         append(env.sources_file, comment, use_sudo=True)
     for source in env.std_sources:
@@ -627,6 +514,8 @@ def _yum_packages(to_install):
     sudo("yum -y upgrade")
     # Retrieve packages to get and install each of them
     (packages, _) = _yaml_to_packages(pkg_config, to_install)
+    # At this point allow the Flavor to rewrite the package list
+    packages = env.flavor.rewrite_packages_list(packages)
     for package in packages:
         sudo("yum -y install %s" % package)
 
@@ -664,16 +553,26 @@ def _freenx_scripts():
     if not exists(remote_login):
         put(os.path.join(install_file_dir, 'bash_login'), remote_login,
                 mode=0777)
+    userdata_script = "K20userdatapassnx.sh"
+    userdata_remote = "/etc/rc1.d/%s" % userdata_script
+    if not exists(userdata_remote):
+        put(os.path.join(install_file_dir, userdata_script), userdata_remote,
+            mode=0777, use_sudo=True)
 
-def _cleanup():
+def _cleanup_space():
+    """Cleanup to recover space from builds and packages.
+    """
+    env.logger.info("Cleaning up space from package builds")
+    sudo("rm -rf .cpanm")
+    sudo("rm -f /var/crash/*")
+
+def _cleanup_ec2():
     """Clean up any extra files after building.
     """
-    env.logger.info("Cleaning up")
+    env.logger.info("Cleaning up for EC2 AMI creation")
     run("rm -f .bash_history")
-    sudo("rm -f /var/crash/*")
     sudo("rm -f /var/log/firstboot.done")
     sudo("rm -f .nx_setup_done")
-    sudo("rm -rf .cpanm")
     # RabbitMQ fails to start if its database is embedded into the image
     # because it saves the current IP address or host name so delete it now.
     # When starting up, RabbitMQ will recreate that directory.

@@ -8,12 +8,16 @@
 # details about the operating system
 ## Ubuntu
 distribution = ubuntu
-dist_name = maverick
+dist_name = natty
 ## Centos
 #distribution = centos
 ## Debian
 #distribution = debian
 #dist_name = squeeze
+
+# Whether to clean the system and install setup scripts after finishing
+# Useful for preparing AMI but should not be run on vagrant or local machines
+is_ec2_image = false
 
 # Global installation directory for packages and standard programs
 system_install = /cloudbiolinux
