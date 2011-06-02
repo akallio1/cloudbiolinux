@@ -1,22 +1,15 @@
 ---
 # List of packages to be installed via the yum package manager.
 desktop:
-  - gnome-panel
-  - freenx
-  - gnome-terminal
-  - firefox
-  - evince
-  - xorg-x11-server-Xvfb
 programming:
   editors:
     - emacs
     - emacs-common
     - emacs-el
-    - vim-X11
+    - vim
     - ctags
   version_control:
     - git
-    - cvs
     - subversion
     - mercurial
     - bzr

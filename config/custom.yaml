@@ -3,7 +3,7 @@
 # a install_name function in the appropriate place in the 'custom' directory to
 # define the steps for downloading, building, and installing the package.
 bio_general:
- - emboss
+# - emboss
 bio_nextgen:
   alignment:
     - bwa
@@ -13,33 +13,33 @@ bio_nextgen:
     - perm
   analysis:
     - bedtools
-    - cufflinks
+#    - cufflinks
     - fastqc
-    - fastx_toolkit
-    - freebayes
+#    - fastx_toolkit
+#    - freebayes
     - gatk
     - picard
     - snpeff
-    - solexaqa
+#    - solexaqa
     - tophat
   assembly:
 #    - abyss
 #    - transabyss
 #    - trinity
-    - velvet
+#    - velvet
   chip:
-    - macs
+#    - macs
   needs_64bit:
     - ucsc_tools
     - bfast
-    - novoalign
+#    - novoalign
 distributed:
   - mahout
   - pydoop
 python:
-  - bx-python
-  - matplotlib
-  - rpy
+#  - bx-python
+#  - matplotlib
+#  - rpy
 java:
 #  - leinengin
 #  - cljr

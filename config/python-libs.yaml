@@ -59,6 +59,7 @@ pypi:
   - pydot
   - pygooglechart
   - reportlab
+  - matplotlib
 
 ## compile problems
   #- tables
