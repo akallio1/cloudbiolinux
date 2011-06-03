@@ -8,7 +8,7 @@
 # details about the operating system
 ## Ubuntu
 distribution = ubuntu
-dist_name = natty
+dist_name = maverick 
 ## Centos
 #distribution = centos
 ## Debian
@@ -20,10 +20,10 @@ dist_name = natty
 is_ec2_image = false
 
 # Global installation directory for packages and standard programs
-system_install = /cloudbiolinux
+system_install = /storage
 # Local install directory for versioned software that will not                                                                       
 # be included in the path by default
-local_install = /cloudbiolinux
+local_install = /storage/usr/local
 shell_config = ~/.bashrc
 shell = /bin/bash -l -c
 
@@ -32,5 +32,5 @@ distribution = centos
 user = root 
 
 # details for biological data files and Galaxy
-data_files = /cloudbiolinux/biodata
-galaxy_base = /cloudbiolinux/galaxy
+data_files = /storage/biodata
+galaxy_base = /storage/galaxy
