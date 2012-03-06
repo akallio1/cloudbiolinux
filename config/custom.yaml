@@ -54,7 +54,6 @@ bio_nextgen:
     - novoalign
     - plink_seq
 cloudman:
-  - nginx
   - proftpd
   - sge
 distributed:

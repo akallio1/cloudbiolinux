@@ -76,7 +76,7 @@ class CloudBioLinux(Edition):
     def post_install(self):
         """Add scripts for starting FreeNX and CloudMan.
         """
-        _freenx_scripts(self.env)
+        #_freenx_scripts(self.env)
         _configure_cloudman(self.env)
 
 class BioNode(Edition):

@@ -41,6 +41,7 @@ minimal:
     - patch
     - cmake
     - swig
+    - python-pip
   util:
     - axel
     - rsync
@@ -59,7 +60,6 @@ desktop:
     - gnome-system-tools
     - synaptic
     - software-center
-    - freenx-server
     - gnome-themes
     - gnome-backgrounds
     - gnome-terminal
