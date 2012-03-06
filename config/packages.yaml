@@ -434,6 +434,7 @@ phylogeny:
     - bio-linux-treeview # Version problem
   needs_64bit:
     - bio-linux-fasttree
+
 # To do -- in Deb Med but not propogated
 # squizz
 # biomaj

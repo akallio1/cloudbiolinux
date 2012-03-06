@@ -72,3 +72,5 @@ phylogeny:
 # ToDo -- test on 64bit with bfast
 #- dnaa
 #- srma
+chipster:
+  - chipsterserver
